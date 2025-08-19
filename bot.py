@@ -27,7 +27,7 @@ CHANNEL_LINK = "https://t.me/+6M02Kc1z0t80Y2Zi"
 CHAT_LINK = "https://t.me/+bN65FTKvhRllZjAy"
 OWNER_ID = 7939185150 
 
-AUTO_APPROVE = True
+AUTO_APPROVE = False
 PAYOUT_PER_REQUEST = 0.40
 
 # ========================================================
