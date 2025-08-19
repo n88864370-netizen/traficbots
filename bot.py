@@ -18,11 +18,11 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ChatInviteLink
 
 # ===================== НАЛАШТУВАННЯ =====================
-API_TOKEN = "YOUR_BOT_TOKEN"
-CHANNEL_ID = -1001234567890
-CHANNEL_LINK = "https://t.me/YOUR_CHANNEL"
-CHAT_LINK = "https://t.me/YOUR_CHAT"
-OWNER_ID = 123456789
+API_TOKEN = "8353432332:AAE-FYyo0oekiSz1BmGizXTh8X0HVD9KPUQ"
+CHANNEL_ID = -1002646229900
+CHANNEL_LINK = "https://t.me/+6M02Kc1z0t80Y2Zi"
+CHAT_LINK = "https://t.me/+bN65FTKvhRllZjAy"
+OWNER_ID = 7939185150 
 
 AUTO_APPROVE = True
 PAYOUT_PER_REQUEST = 0.40
