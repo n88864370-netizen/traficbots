@@ -13,8 +13,11 @@
 
 import logging
 import sqlite3
+import asyncio
 
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Bot, Dispatcher, types
+from aiogram.client.default import DefaultBotProperties
+from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ChatInviteLink
 
 # ===================== НАЛАШТУВАННЯ =====================
@@ -32,8 +35,9 @@ PAYOUT_PER_REQUEST = 0.40
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-bot = Bot(token=API_TOKEN, parse_mode="HTML")
-dp = Dispatcher(bot)
+# Исправленная инициализация бота
+bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+dp = Dispatcher()
 
 # ===================== БАЗА ДАНИХ =====================
 DB_PATH = "arbit_bot.db"
@@ -112,24 +116,24 @@ def add_referral_and_earn(owner_id: int, amount: float):
 # ===================== КНОПКИ =====================
 
 def start_kb():
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("📝 Подати заявку", callback_data="submit_request"),
-        InlineKeyboardButton("✅ Перевірити заявку", callback_data="check_request"),
-    )
+    buttons = [
+        [InlineKeyboardButton(text="📝 Подати заявку", callback_data="submit_request")],
+        [InlineKeyboardButton(text="✅ Перевірити заявку", callback_data="check_request")]
+    ]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     return kb
 
 
 def arbitrage_kb():
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("📊 Моя статистика", callback_data="stats"),
-        InlineKeyboardButton("🔗 Моя реф. ссилка", callback_data="ref_link"),
-        InlineKeyboardButton("💰 Заявка на виплату", callback_data="payout"),
-        InlineKeyboardButton("💬 Зв'язок з власником", url=f"tg://user?id={OWNER_ID}"),
-        InlineKeyboardButton("💭 Увійти в чат", url=CHAT_LINK),
-        InlineKeyboardButton("⬅️ На головну", callback_data="back_to_start"),
-    )
+    buttons = [
+        [InlineKeyboardButton(text="📊 Моя статистика", callback_data="stats")],
+        [InlineKeyboardButton(text="🔗 Моя реф. ссилка", callback_data="ref_link")],
+        [InlineKeyboardButton(text="💰 Заявка на виплату", callback_data="payout")],
+        [InlineKeyboardButton(text="💬 Зв'язок з власником", url=f"tg://user?id={OWNER_ID}")],
+        [InlineKeyboardButton(text="💭 Увійти в чат", url=CHAT_LINK)],
+        [InlineKeyboardButton(text="⬅️ На головну", callback_data="back_to_start")]
+    ]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     return kb
 
 # ===================== ХЕЛПЕР =====================
@@ -150,18 +154,18 @@ async def create_or_get_user_invite(user_id: int) -> str:
     return link
 
 # ===================== ХЕНДЛЕРИ =====================
-@dp.message_handler(commands=["start"])
+@dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     ensure_user(message.from_user.id)
     await message.answer("👋 Вітаю! Обери дію:", reply_markup=start_kb())
 
 
-@dp.callback_query_handler(lambda c: c.data == "back_to_start")
+@dp.callback_query(lambda c: c.data == "back_to_start")
 async def back_to_start(callback: types.CallbackQuery):
     await callback.message.edit_text("👋 Вітаю! Обери дію:", reply_markup=start_kb())
 
 
-@dp.callback_query_handler(lambda c: c.data == "submit_request")
+@dp.callback_query(lambda c: c.data == "submit_request")
 async def submit_request(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     link = await create_or_get_user_invite(user_id)
@@ -171,7 +175,7 @@ async def submit_request(callback: types.CallbackQuery):
     )
 
 
-@dp.callback_query_handler(lambda c: c.data == "check_request")
+@dp.callback_query(lambda c: c.data == "check_request")
 async def check_request(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     row = get_user(user_id)
@@ -183,14 +187,14 @@ async def check_request(callback: types.CallbackQuery):
         await callback.message.edit_text("❗️ Заявок ще немає. Поділись своєю ссилкою та зачекай.", reply_markup=start_kb())
 
 
-@dp.callback_query_handler(lambda c: c.data == "ref_link")
+@dp.callback_query(lambda c: c.data == "ref_link")
 async def show_ref_link(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     link = await create_or_get_user_invite(user_id)
     await callback.message.edit_text(f"🔗 Твоя реф. ссилка:\n{link}", reply_markup=arbitrage_kb())
 
 
-@dp.callback_query_handler(lambda c: c.data == "stats")
+@dp.callback_query(lambda c: c.data == "stats")
 async def stats(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     row = get_user(user_id)
@@ -200,13 +204,13 @@ async def stats(callback: types.CallbackQuery):
     await callback.message.edit_text(text, reply_markup=arbitrage_kb())
 
 
-@dp.callback_query_handler(lambda c: c.data == "payout")
+@dp.callback_query(lambda c: c.data == "payout")
 async def payout(callback: types.CallbackQuery):
     await callback.message.edit_text("💰 Для виплати зв'яжись з власником:", reply_markup=arbitrage_kb())
 
 
 # ===================== ОБРОБКА ЗАЯВОК НА ВСТУП =====================
-@dp.chat_join_request_handler()
+@dp.chat_join_request()
 async def handle_join_request(join_req: types.ChatJoinRequest):
     try:
         inv: ChatInviteLink = join_req.invite_link
@@ -225,14 +229,17 @@ async def handle_join_request(join_req: types.ChatJoinRequest):
                 pass
 
         if AUTO_APPROVE:
-            await bot.approve_chat_join_request(chat_id=join_req.chat.id, user_id=applicant.id)
+            await join_req.approve()
 
     except Exception as e:
         logger.exception("Помилка обробки заявки: %s", e)
 
 
 # ===================== ЗАПУСК =====================
-if __name__ == "__main__":
+async def main():
     db_init()
     logger.info("Бот запущено…")
-    executor.start_polling(dp, skip_updates=True)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
